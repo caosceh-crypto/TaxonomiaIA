@@ -5,7 +5,8 @@
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import Optional
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -52,6 +53,18 @@ except Exception as e:
 
 # Configurar Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+# -------------------------------
+# SERVIR ARCHIVOS ESTÁTICOS (Frontend)
+# -------------------------------
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def serve_index():
+    index_path = os.path.join("static", "index.html")
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="index.html no encontrado")
+    return FileResponse(index_path)
 
 # -------------------------------
 # FUNCIÓN DE IA (Gemini)
@@ -139,7 +152,6 @@ def process_sample_sync(sample_id: str):
 # -------------------------------
 # ENDPOINTS PRINCIPALES
 # -------------------------------
-
 @app.post("/api/samples")
 async def create_sample(qr_code: str = Form(...)):
     sample_id = str(uuid.uuid4())
@@ -206,7 +218,6 @@ async def list_samples():
 # -------------------------------
 # NUEVOS ENDPOINTS DE RESULTADOS
 # -------------------------------
-
 @app.get("/api/results")
 async def list_results():
     results = list(samples.find({"status": "completed"}, {"_id": 0, "sample_id": 1, "result": 1}))
