@@ -98,7 +98,7 @@ btnEnviar.addEventListener("click", async () => {
             `✅ Análisis completado.<br><br>
              <strong>Confianza:</strong> ${data.confidence || "—"}<br>
              <strong>Evidencia:</strong> ${data.evidence || "—"}<br><br>
-             <a href="results.html?id=${sampleId}" class="btn-ver">🔍 Ver resultado completo</a>`,
+             <a href="/static/results.html?id=${sampleId}" class="btn-ver">🔍 Ver resultado completo</a>`,
             "green"
           );
         }
