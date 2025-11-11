@@ -2,4 +2,5 @@ fastapi
 uvicorn
 pymongo
 python-dotenv
-google-generativeaipython-multipart
+google-generativeai
+python-multipart
