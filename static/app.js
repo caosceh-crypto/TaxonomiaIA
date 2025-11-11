@@ -9,7 +9,7 @@ const imagePreview = document.getElementById("image_preview");
 // 🌍 Detectar si estamos en local o en producción (Render)
 const API_URL = window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1")
   ? "http://127.0.0.1:8000"
-  : "https://taxonomiaia.onrender.com/";
+  : "https://taxonomiaia.onrender.com";
 
 // 🧬 Previsualización de genoma
 genomeFileInput.addEventListener("change", () => {
