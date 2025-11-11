@@ -5,7 +5,7 @@ const inputBuscar = document.getElementById("searchId");
 // 🌐 Detecta si estamos en local o en producción
 const API_URL = window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1")
   ? "http://127.0.0.1:8000"
-  : "https://tu-proyecto-en-render.onrender.com"; // 👈 cambia esto por tu URL real de Render
+  : "https://taxonomiaia.onrender.com/"; // 👈 cambia esto por tu URL real de Render
 
 // 🔄 Loader visual
 function mostrarLoader() {
