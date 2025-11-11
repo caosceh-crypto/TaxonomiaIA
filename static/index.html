@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clasificador de Microorganismos 🧬</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="dna-background"></div>
+
+  <header>
+    <h1>Clasificador de Microorganismos 🧫</h1>
+    <p>Sube tu genoma y recibe un análisis inteligente en segundos.</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <label for="sample_id">ID de la Muestra (del QR):</label>
+      <input type="text" id="sample_id" placeholder="Ej: test123" required>
+
+      <label for="genome_file">Archivo del Genoma (FASTA o TXT):</label>
+      <input type="file" id="genome_file" accept=".txt,.fasta" required>
+      <div id="genome_preview" class="preview"></div>
+
+      <label for="image_file">Imagen de la Colonia (opcional):</label>
+      <input type="file" id="image_file" accept="image/*">
+      <div id="image_preview" class="preview"></div>
+
+      <button id="btnEnviar">🚀 Enviar a Analizar</button>
+
+      <div id="mensaje" class="status-message">
+        <!-- Aquí aparecerá el estado -->
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 MicroClass AI</p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script src="background.js"></script>
+</body>
+</html>
