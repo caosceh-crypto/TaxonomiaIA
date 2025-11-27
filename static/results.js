@@ -123,7 +123,7 @@ inputBuscar.addEventListener("keydown", (e) => {
 cargarResultados();
 
 /* ============================================================
-   🤖 CHAT IA – Funciona SIN buscar la muestra + Markdown OK
+   🤖 CHAT IA
    ============================================================ */
 
 // Loader "escribiendo..."
