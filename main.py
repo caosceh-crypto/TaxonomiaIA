@@ -253,7 +253,7 @@ async def chat_with_ai(sample_id: str, question: str = Form(...)):
     model = genai.GenerativeModel("gemini-2.5-flash")
 
     prompt = f"""
-    Eres un microbiólogo experto en taxonomía.
+    Eres un microbiólogo experto en taxonomía te llamas TaxonomistAI.
     Resultado de la muestra {sample_id}:
 
     {context}
