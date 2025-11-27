@@ -1,6 +1,7 @@
 # ================================================
 # main.py
-# Plataforma de Taxonomía con IA (Versión Gemini + MongoDB Atlas)
+# Plataforma de Taxonomía con IA (Gemini + MongoDB)
+# Versión FINAL corregida
 # ================================================
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Form
@@ -16,9 +17,8 @@ import google.generativeai as genai
 # -------------------------------
 # CONFIGURACIÓN INICIAL
 # -------------------------------
-app = FastAPI(title="Plataforma Taxonómica IA (Gemini + Atlas)", version="3.2")
+app = FastAPI(title="Plataforma Taxonómica IA (Gemini + Atlas)", version="3.3")
 
-# Permitir CORS (para frontend)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,7 +31,7 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # -------------------------------
-# CARGAR VARIABLES DE ENTORNO
+# VARIABLES DE ENTORNO
 # -------------------------------
 load_dotenv()
 
@@ -41,7 +41,7 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "taxonomiaIA")
 if not MONGO_URI:
     raise Exception("⚠️ No se encontró MONGO_URI en el archivo .env")
 
-# Conexión a MongoDB Atlas
+# Conexión a MongoDB
 try:
     client = MongoClient(MONGO_URI)
     db = client["taxonomiaIA"]
@@ -55,7 +55,7 @@ except Exception as e:
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # -------------------------------
-# SERVIR ARCHIVOS ESTÁTICOS (Frontend)
+# FRONTEND (static)
 # -------------------------------
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -67,23 +67,20 @@ async def serve_index():
     return FileResponse(index_path)
 
 # -------------------------------
-# FUNCIÓN DE IA (Gemini)
+# FUNCIÓN IA (Gemini)
 # -------------------------------
 async def classify_microorganism(genome_text: str, image_path: Optional[str] = None) -> dict:
-    """
-    Clasifica microorganismo usando Google Gemini.
-    """
     model = genai.GenerativeModel("gemini-2.5-flash")
 
     prompt = f"""
     Eres un microbiólogo experto en taxonomía.
     Analiza el siguiente genoma y proporciona:
-    - Nombre científico probable del microorganismo
+    - Nombre científico probable
     - Nivel de confianza (0 a 1)
     - Evidencia basada en marcadores genómicos
     - Comentarios morfológicos si hay imagen
 
-    Genoma (parcial): {genome_text[:2000]}...
+    Genoma (inicio): {genome_text[:2000]}...
     """
 
     if image_path:
@@ -94,18 +91,15 @@ async def classify_microorganism(genome_text: str, image_path: Optional[str] = N
         text = response.text.strip()
 
         try:
-            result = json.loads(text)
+            return json.loads(text)
         except json.JSONDecodeError:
-            result = {
+            return {
                 "classification": text,
                 "confidence": 0.9,
-                "evidence": "Análisis textual (sin formato JSON)"
+                "evidence": "Análisis textual (respuesta no estructurada)"
             }
 
-        return result
-
     except Exception as e:
-        print("❌ Error con Gemini:", e)
         return {"classification": "Unknown", "confidence": 0.0, "error": str(e)}
 
 # -------------------------------
@@ -114,7 +108,7 @@ async def classify_microorganism(genome_text: str, image_path: Optional[str] = N
 async def process_sample(sample_id: str):
     sample = samples.find_one({"sample_id": sample_id})
     if not sample:
-        print(f"❌ Sample {sample_id} no encontrado")
+        print("❌ Sample no encontrado:", sample_id)
         return
 
     try:
@@ -122,29 +116,31 @@ async def process_sample(sample_id: str):
         image_files = [f for f in os.listdir(UPLOAD_DIR) if f.startswith(f"{sample_id}_image")]
 
         if not genome_files:
-            raise Exception("No se encontró archivo de genoma.")
+            raise Exception("Archivo de genoma no encontrado")
 
         genome_path = os.path.join(UPLOAD_DIR, genome_files[0])
+
         with open(genome_path, "r", encoding="utf-8", errors="ignore") as f:
             genome_text = f.read()
 
         image_path = os.path.join(UPLOAD_DIR, image_files[0]) if image_files else None
 
-        print(f"🔬 Analizando muestra {sample_id} con Gemini...")
+        print(f"🔬 Procesando muestra {sample_id}...")
         result = await classify_microorganism(genome_text, image_path)
-        
+
         samples.update_one(
             {"sample_id": sample_id},
             {"$set": {"result": result, "status": "completed"}}
         )
-        print(f"✅ Resultado almacenado para {sample_id}")
+
+        print("✅ Resultado almacenado para", sample_id)
 
     except Exception as e:
-        print(f"❌ Error procesando {sample_id}: {e}")
         samples.update_one(
             {"sample_id": sample_id},
             {"$set": {"status": "error", "result": {"error": str(e)}}}
         )
+        print("❌ Error procesando muestra:", e)
 
 def process_sample_sync(sample_id: str):
     asyncio.run(process_sample(sample_id))
@@ -152,12 +148,18 @@ def process_sample_sync(sample_id: str):
 # -------------------------------
 # ENDPOINTS PRINCIPALES
 # -------------------------------
+
 @app.post("/api/samples")
 async def create_sample(qr_code: str = Form(...)):
     sample_id = str(uuid.uuid4())
-    sample = {"sample_id": sample_id, "qr_code": qr_code, "status": "pending_data", "result": None}
-    samples.insert_one(sample)
+    samples.insert_one({
+        "sample_id": sample_id,
+        "qr_code": qr_code,
+        "status": "pending_data",
+        "result": None
+    })
     return {"sample_id": sample_id, "status": "pending_data"}
+
 
 @app.post("/api/samples/{sample_id}/upload")
 async def upload_sample_data(
@@ -170,32 +172,32 @@ async def upload_sample_data(
     if not sample:
         raise HTTPException(status_code=404, detail="Sample ID not found")
 
-    try:
-        genome_path = os.path.join(UPLOAD_DIR, f"{sample_id}_genome_{genome_file.filename}")
-        with open(genome_path, "wb") as buffer:
-            shutil.copyfileobj(genome_file.file, buffer)
+    genome_path = os.path.join(UPLOAD_DIR, f"{sample_id}_genome_{genome_file.filename}")
+    with open(genome_path, "wb") as buffer:
+        shutil.copyfileobj(genome_file.file, buffer)
 
-        if image_file:
-            image_path = os.path.join(UPLOAD_DIR, f"{sample_id}_image_{image_file.filename}")
-            with open(image_path, "wb") as buffer:
-                shutil.copyfileobj(image_file.file, buffer)
+    if image_file:
+        image_path = os.path.join(UPLOAD_DIR, f"{sample_id}_image_{image_file.filename}")
+        with open(image_path, "wb") as buffer:
+            shutil.copyfileobj(image_file.file, buffer)
 
-        samples.update_one({"sample_id": sample_id}, {"$set": {"status": "processing"}})
-        background_tasks.add_task(process_sample_sync, sample_id)
+    samples.update_one({"sample_id": sample_id}, {"$set": {"status": "processing"}})
+    background_tasks.add_task(process_sample_sync, sample_id)
 
-        return {"message": f"Archivos recibidos para {sample_id}. Análisis iniciado."}
+    return {"message": f"Archivos recibidos. Procesando {sample_id}..."}
 
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/samples/{sample_id}/result")
 async def get_sample_result(sample_id: str):
     sample = samples.find_one({"sample_id": sample_id}, {"_id": 0})
     if not sample:
         raise HTTPException(status_code=404, detail="Sample not found")
+
     if sample["status"] != "completed":
-        return {"status": sample["status"], "message": "Análisis aún en progreso."}
+        return {"status": sample["status"], "message": "Análisis aún en progreso"}
+
     return sample["result"]
+
 
 @app.put("/api/samples/{sample_id}/correction")
 async def correct_sample(sample_id: str, corrected_taxonomy: str = Form(...)):
@@ -208,24 +210,63 @@ async def correct_sample(sample_id: str, corrected_taxonomy: str = Form(...)):
         {"$set": {"correction": corrected_taxonomy, "status": "corrected"}}
     )
 
-    return {"message": f"Corrección recibida y almacenada para {sample_id}."}
+    return {"message": f"Corrección almacenada para {sample_id}"}
+
 
 @app.get("/api/samples")
 async def list_samples():
-    all_samples = list(samples.find({}, {"_id": 0}))
-    return {"count": len(all_samples), "samples": all_samples}
+    data = list(samples.find({}, {"_id": 0}))
+    return {"count": len(data), "samples": data}
 
 # -------------------------------
-# NUEVOS ENDPOINTS DE RESULTADOS
+# ENDPOINTS DE RESULTADOS
 # -------------------------------
 @app.get("/api/results")
 async def list_results():
-    results = list(samples.find({"status": "completed"}, {"_id": 0, "sample_id": 1, "result": 1}))
-    return results or []
+    return list(samples.find({"status": "completed"}, {"_id": 0, "sample_id": 1, "result": 1}))
 
 @app.get("/api/results/{sample_id}")
 async def get_result_by_id(sample_id: str):
-    sample = samples.find_one({"sample_id": sample_id}, {"_id": 0, "sample_id": 1, "result": 1, "status": 1})
+    sample = samples.find_one({"sample_id": sample_id}, {"_id": 0})
     if not sample:
-        raise HTTPException(status_code=404, detail="Resultado no encontrado.")
+        raise HTTPException(status_code=404, detail="Resultado no encontrado")
+
     return sample
+
+# -------------------------------
+# CHAT IA — **CORREGIDO**
+# -------------------------------
+@app.post("/api/chat/{sample_id}")
+async def chat_with_ai(sample_id: str, question: str = Form(...)):
+    """
+    Chat usando FormData (compatible con tu frontend).
+    """
+
+    sample = samples.find_one({"sample_id": sample_id})
+    if not sample:
+        raise HTTPException(status_code=404, detail="Sample not found")
+
+    if not sample.get("result"):
+        raise HTTPException(status_code=400, detail="La muestra no tiene resultado aún")
+
+    context = json.dumps(sample["result"], ensure_ascii=False)
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+    prompt = f"""
+    Eres un microbiólogo experto en taxonomía.
+    Resultado de la muestra {sample_id}:
+
+    {context}
+
+    Pregunta del usuario:
+    "{question}"
+
+    Responde de forma clara, científica y útil.
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        return {"answer": response.text.strip()}
+
+    except Exception as e:
+        return {"error": str(e)}
