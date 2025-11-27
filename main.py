@@ -234,7 +234,7 @@ async def get_result_by_id(sample_id: str):
     return sample
 
 # -------------------------------
-# CHAT IA — **CORREGIDO**
+# CHAT IA 
 # -------------------------------
 @app.post("/api/chat/{sample_id}")
 async def chat_with_ai(sample_id: str, question: str = Form(...)):
